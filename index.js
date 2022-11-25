@@ -26,8 +26,6 @@ async function run() {
             .db("reseller")
             .collection("categories");
 
-        const productsCollection = client.db("reseller").collection("products");
-
         app.get("/categories", async (req, res) => {
             const query = {};
             const categories = await categoriesCollection.find(query).toArray();
@@ -36,12 +34,12 @@ async function run() {
 
         // get specific category products
 
-        app.get("category/:id", async (req, res) => {
+        app.get("/category/:id", async (req, res) => {
             const id = req.params.id;
 
             const query = { _id: ObjectId(id) };
             console.log(query);
-            const category = await productsCollection.findOne(query);
+            const category = await categoriesCollection.findOne(query);
             res.send(category);
         });
     } finally {
