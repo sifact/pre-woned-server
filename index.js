@@ -25,6 +25,8 @@ async function run() {
         const categoriesCollection = client
             .db("reseller")
             .collection("categories");
+        const bookingsCollection = client.db("reseller").collection("bookings");
+        const sellersCollection = client.db("reseller").collection("sellers");
 
         app.get("/categories", async (req, res) => {
             const query = {};
@@ -38,9 +40,44 @@ async function run() {
             const id = req.params.id;
 
             const query = { _id: ObjectId(id) };
-            console.log(query);
+
             const category = await categoriesCollection.findOne(query);
             res.send(category);
+        });
+
+        // bookings
+        app.post("/bookings", async (req, res) => {
+            // receive from client
+            const booking = req.body;
+            console.log(booking);
+
+            const query = {};
+
+            // store in db
+            const result = await bookingsCollection.insertOne(booking);
+            res.send(result);
+        });
+
+        // create seller
+        app.post("/sellers", async (req, res) => {
+            const seller = req.body;
+            const result = await sellersCollection.insertOne(seller);
+            res.send(result);
+        });
+
+        app.post("/addedProducts/:brand", async (req, res) => {
+            const product = req.body;
+            const category = req.params.brand;
+
+            const result = await categoriesCollection.findOneAndUpdate(
+                { title: category },
+                {
+                    $addToSet: {
+                        products: product,
+                    },
+                }
+            );
+            res.send(result);
         });
     } finally {
     }
