@@ -65,13 +65,25 @@ async function run() {
             res.send(result);
         });
 
+        // get seller
+        app.get("/sellers", async (req, res) => {
+            const query = {};
+            const seller = await sellersCollection.find(query).toArray();
+            res.send(seller);
+        });
+
         // create seller
         app.post("/sellers", async (req, res) => {
             const seller = req.body;
             const result = await sellersCollection.insertOne(seller);
             res.send(result);
         });
-
+        // get buyers db
+        app.get("/buyers", async (req, res) => {
+            const query = {};
+            const buyer = await buyersCollection.find(query).toArray();
+            res.send(buyer);
+        });
         // create buyer db
         app.post("/buyers", async (req, res) => {
             const buyer = req.body;
