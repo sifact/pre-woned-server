@@ -27,6 +27,7 @@ async function run() {
             .collection("categories");
         const bookingsCollection = client.db("reseller").collection("bookings");
         const sellersCollection = client.db("reseller").collection("sellers");
+        const buyersCollection = client.db("reseller").collection("buyers");
 
         app.get("/categories", async (req, res) => {
             const query = {};
@@ -45,6 +46,12 @@ async function run() {
             res.send(category);
         });
 
+        // get bookings or orders
+        app.get("/bookings", async (req, res) => {
+            const query = {};
+            const orders = await bookingsCollection.find(query).toArray();
+            res.send(orders);
+        });
         // bookings
         app.post("/bookings", async (req, res) => {
             // receive from client
@@ -62,6 +69,15 @@ async function run() {
         app.post("/sellers", async (req, res) => {
             const seller = req.body;
             const result = await sellersCollection.insertOne(seller);
+            res.send(result);
+        });
+
+        // create buyer db
+        app.post("/buyers", async (req, res) => {
+            const buyer = req.body;
+            console.log(buyer.email);
+
+            const result = await buyersCollection.insertOne(buyer);
             res.send(result);
         });
 
