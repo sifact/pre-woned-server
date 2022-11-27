@@ -2,6 +2,7 @@ const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const cors = require("cors");
+const { query } = require("express");
 // const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
@@ -29,8 +30,8 @@ async function run() {
         const sellersCollection = client.db("reseller").collection("sellers");
         const buyersCollection = client.db("reseller").collection("buyers");
         const addedProductsCollection = client
-            .db("products")
-            .collection("buyers");
+            .db("reseller")
+            .collection("products");
 
         app.get("/categories", async (req, res) => {
             const query = {};
@@ -128,6 +129,15 @@ async function run() {
             const product = req.body;
 
             const result = await addedProductsCollection.insertOne(product);
+            res.send(result);
+        });
+
+        // get stored added products
+        app.get("/addedProducts/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+
+            const result = await addedProductsCollection.find(query).toArray();
             res.send(result);
         });
     } finally {
