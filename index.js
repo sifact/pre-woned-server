@@ -28,11 +28,26 @@ async function run() {
         const bookingsCollection = client.db("reseller").collection("bookings");
         const sellersCollection = client.db("reseller").collection("sellers");
         const buyersCollection = client.db("reseller").collection("buyers");
+        const addedProductsCollection = client
+            .db("products")
+            .collection("buyers");
 
         app.get("/categories", async (req, res) => {
             const query = {};
             const categories = await categoriesCollection.find(query).toArray();
             res.send(categories);
+        });
+
+        // get specific user products
+        app.get("/products/:email", async (req, res) => {
+            const email = req.params.email;
+
+            // const query = { email: email };
+            console.log(email);
+            const category = await categoriesCollection
+                .aggregate([{ $match: { email: { $all: email } } }])
+                .toArray();
+            res.send(category);
         });
 
         // get specific category products
@@ -105,6 +120,14 @@ async function run() {
                     },
                 }
             );
+            res.send(result);
+        });
+
+        // store product in db
+        app.post("/addedProducts", async (req, res) => {
+            const product = req.body;
+
+            const result = await addedProductsCollection.insertOne(product);
             res.send(result);
         });
     } finally {
