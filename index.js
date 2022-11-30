@@ -3,7 +3,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const cors = require("cors");
 const { query } = require("express");
-// const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
@@ -21,6 +21,22 @@ const client = new MongoClient(uri, {
     serverApi: ServerApiVersion.v1,
 });
 
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: "unauthorized access" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+    });
+}
+
 async function run() {
     try {
         const categoriesCollection = client
@@ -36,10 +52,21 @@ async function run() {
             .db("reseller")
             .collection("advertise");
 
+        app.post("/jwt", (req, res) => {
+            const user = req.body;
+            console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
+                expiresIn: "60d",
+            });
+            res.send({ token });
+            console.log(token);
+        });
+
         app.get("/categories", async (req, res) => {
             const query = {};
             const categories = await categoriesCollection.find(query).toArray();
             res.send(categories);
+            // console.log(process.env.ACCESS_TOKEN);
         });
 
         // get specific user products
@@ -66,8 +93,9 @@ async function run() {
         });
 
         // get bookings or orders
-        app.get("/bookings", async (req, res) => {
-            const query = {};
+        app.get("/bookings/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
             const orders = await bookingsCollection.find(query).toArray();
             res.send(orders);
         });
@@ -136,7 +164,16 @@ async function run() {
         });
 
         // get stored added products
-        app.get("/addedProducts/:email", async (req, res) => {
+        app.get("/addedProducts/:email", verifyJWT, async (req, res) => {
+            console.log("hello");
+            const decoded = req.decoded;
+            console.log(decoded.email);
+            console.log("inside orders api", decoded);
+
+            if (decoded.email !== req.params.email) {
+                res.status(403).send({ message: "unauthorized access" });
+            }
+
             const email = req.params.email;
             const query = { email: email };
 
@@ -145,6 +182,13 @@ async function run() {
         });
 
         // advertise data
+
+        app.get("/advertise", async (req, res) => {
+            const query = {};
+
+            const result = await addedProductsCollection.find(query).toArray();
+            res.send(result);
+        });
         app.post("/advertise", async (req, res) => {
             // receive from client
             const product = req.body;
@@ -154,6 +198,111 @@ async function run() {
             // store in db
             const result = await advertiseCollection.insertOne(product);
             res.send(result);
+        });
+
+        // delete product
+        app.delete("/addedProducts/:id", async (req, res) => {
+            const id = req.params.id;
+
+            const query = { _id: ObjectId(id) };
+            const result = await addedProductsCollection.deleteOne(query);
+            console.log(result);
+            res.send(result);
+        });
+
+        // delete seller
+        app.delete("/seller/delete/:id", async (req, res) => {
+            const id = req.params.id;
+
+            const query = { _id: ObjectId(id) };
+            const result = await sellersCollection.deleteOne(query);
+            console.log(result);
+            res.send(result);
+        });
+
+        // delete buyer
+        app.delete("/buyer/delete/:id", async (req, res) => {
+            const id = req.params.id;
+
+            const query = { _id: ObjectId(id) };
+            const result = await buyersCollection.deleteOne(query);
+            console.log(result);
+            res.send(result);
+        });
+
+        // make seller admin
+        app.put("/sellers/admin/:id", verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await sellersCollection.findOne(query);
+
+            if (user?.role !== "admin") {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            const id = req.params.id;
+
+            const filter = { _id: ObjectId(id) };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    role: "admin",
+                },
+            };
+            const result = await sellersCollection.updateOne(
+                filter,
+                updateDoc,
+                options
+            );
+            res.send(result);
+        });
+        // make buyer admin
+        app.put("/buyers/admin/:id", verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await sellersCollection.findOne(query);
+
+            if (user?.role !== "admin") {
+                return res.status(403).send({ message: "forbidden access" });
+            }
+            const id = req.params.id;
+
+            const filter = { _id: ObjectId(id) };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    role: "admin",
+                },
+            };
+            const result = await buyersCollection.updateOne(
+                filter,
+                updateDoc,
+                options
+            );
+            res.send(result);
+        });
+
+        // check admin
+        app.get("/sellers/admin/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await sellersCollection.findOne(query);
+            res.send({ isAdmin: user?.role === "admin" });
+        });
+
+        // check seller
+        app.get("/sellers/identity/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await sellersCollection.findOne(query);
+            res.send({ isSeller: user?.identity === "seller" });
+        });
+
+        // check buyer
+        app.get("/buyers/identity/:email", async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await buyersCollection.findOne(query);
+            res.send({ isBuyer: user?.identity === "buyer" });
         });
     } finally {
     }
